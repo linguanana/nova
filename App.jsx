@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
-import { tailwindMerge } from 'tailwind-merge';
+import { twMerge } from 'tailwind-merge';
 
 // 檢查 Canvas 環境中是否提供了 Firebase 設定和 auth token
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
@@ -201,7 +201,7 @@ const App = () => {
                     <textarea
                         value={prompt}
                         onChange={handlePromptChange}
-                        className={tailwindMerge(inputClasses, "h-32 resize-none")}
+                        className={twMerge(inputClasses, "h-32 resize-none")}
                         placeholder="請輸入你想要 AI 做的圖片分析或任務..."
                     ></textarea>
                 </div>
