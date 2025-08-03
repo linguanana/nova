@@ -1,28 +1,28 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>簡易語音與字幕生成器</title>
-    <!-- Tailwind CSS CDN for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <!-- Our custom stylesheet -->
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body class="bg-gray-100">
-    <!-- This is where our React app will be rendered -->
-    <div id="root"></div>
+cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation cdn.tailwindcss.com:64:1711
+GET
+https://linguanana.github.io/favicon.ico
+[HTTP/2 404  21ms]
 
-    <!-- React and ReactDOM CDNs -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel CDN for JSX support in the browser -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Our application logic -->
-    <script type="text/babel" src="js/script.js"></script>
-</body>
-</html>
+You are using the in-browser Babel transformer. Be sure to precompile your scripts for production - https://babeljs.io/docs/setup/ babel.min.js:3:3044005
+Uncaught ReferenceError: exports is not defined
+    <anonymous> https://linguanana.github.io/nova/ line 3 > injectedScript:4
+    pEe https://unpkg.com/@babel/standalone/babel.min.js:3
+    n https://unpkg.com/@babel/standalone/babel.min.js:3
+    a https://unpkg.com/@babel/standalone/babel.min.js:3
+    onreadystatechange https://unpkg.com/@babel/standalone/babel.min.js:3
+    s https://unpkg.com/@babel/standalone/babel.min.js:3
+    gEe https://unpkg.com/@babel/standalone/babel.min.js:3
+    CEe https://unpkg.com/@babel/standalone/babel.min.js:3
+    CEe https://unpkg.com/@babel/standalone/babel.min.js:3
+    kEe https://unpkg.com/@babel/standalone/babel.min.js:3
+    EventListener.handleEvent* https://unpkg.com/@babel/standalone/babel.min.js:3
+    <anonymous> https://unpkg.com/@babel/standalone/babel.min.js:1
+    <anonymous> https://unpkg.com/@babel/standalone/babel.min.js:1
+line 3 > injectedScript:4:23
+Source map error: Error: NetworkError when attempting to fetch resource.
+Resource URL: https://unpkg.com/@babel/standalone/babel.min.js
+Source Map URL: babel.min.js.map
+
+Source map error: NetworkError when attempting to fetch resource.
+Resource URL: https://unpkg.com/@babel/standalone/babel.min.js
+Source Map URL: babel.min.js.map
