@@ -1,0 +1,19 @@
+// package.json
+{
+  "name": "react-app",
+  "version": "1.0.0",
+  "description": "A simple React app for GitHub Pages",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server .",
+    "deploy": "gh-pages -d ."
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.1.1",
+    "http-server": "^14.1.1"
+  }
+}

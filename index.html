@@ -1,0 +1,64 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的 React 網站</title>
+</head>
+<body>
+    <div id="root"></div>
+    <!-- 引入 React 和 Babel 來即時編譯 JSX -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 引入 Tailwind CSS 腳本 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/babel" src="App.jsx"></script>
+</body>
+</html>
+```json
+// package.json
+{
+  "name": "react-app",
+  "version": "1.0.0",
+  "description": "A simple React app for GitHub Pages",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server .",
+    "deploy": "gh-pages -d ."
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.1.1",
+    "http-server": "^14.1.1"
+  }
+}
+```jsx
+// App.jsx
+// 主應用程式元件
+const App = () => {
+    return (
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+            <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-sm w-full">
+                <h1 className="text-4xl font-bold text-blue-600 mb-4">Hello World!</h1>
+                <p className="text-gray-700">這是一個使用 React 和 Tailwind CSS 建立的簡單網站。</p>
+                <a
+                    href="https://github.com/linguanana"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-6 inline-block bg-blue-500 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                    前往我的 GitHub
+                </a>
+            </div>
+        </div>
+    );
+};
+
+// 渲染應用程式
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
