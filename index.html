@@ -1,17 +1,18 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>語音與字幕生成器</title>
-    <!-- Tailwind CSS CDN -->
+    <title>TTS & Caption Generator</title>
+    <!-- We are using Tailwind CSS for a clean, modern design. The CDN link makes it easy to use on any website. -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Using the Inter font for a better look */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f1f5f9;
         }
-        /* Custom scrollbar for better aesthetics */
+        /* Custom scrollbar for the text area */
         textarea::-webkit-scrollbar {
             width: 8px;
         }
@@ -27,60 +28,61 @@
 <body class="min-h-screen flex items-center justify-center p-4">
     <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl border border-gray-200">
         <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-2">
-            語音與字幕生成器
+            TTS & Caption Generator
         </h1>
         <p class="text-center text-gray-500 mb-8">
-            輸入文字，選擇一個聲音，然後生成語音。
+            Type your text, select a voice, and generate audio.
         </p>
 
-        <!-- Text Input Area -->
+        <!-- Text Input Area for the user's script -->
         <div class="mb-6">
             <label for="text-input" class="block text-sm font-medium text-gray-700 mb-2">
-                輸入您的文字
+                Enter Your Text
             </label>
             <textarea
                 id="text-input"
                 class="w-full p-4 h-40 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                placeholder="請在這裡輸入您的文字..."
+                placeholder="Enter your script here..."
             ></textarea>
         </div>
 
-        <!-- Voice Selector -->
+        <!-- Voice Selector dropdown -->
         <div class="mb-6">
             <label for="voice-selector" class="block text-sm font-medium text-gray-700 mb-2">
-                選擇一個聲音
+                Choose a Voice
             </label>
             <select
                 id="voice-selector"
                 class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
             >
-                <!-- Voices will be populated by JavaScript -->
+                <!-- The voices will be populated here by the JavaScript code below -->
             </select>
         </div>
 
-        <!-- Generate Button -->
+        <!-- The Generate button -->
         <div class="mb-6">
             <button
                 id="generate-button"
                 class="w-full py-4 px-6 rounded-lg font-bold text-white transition-all duration-200 bg-indigo-600 hover:bg-indigo-700 active:scale-95"
             >
-                生成音訊
+                Generate Audio
             </button>
         </div>
 
-        <!-- Dynamic Content Area -->
+        <!-- This area will dynamically show the loading indicator, error messages, or the audio player -->
         <div id="dynamic-content-area"></div>
     </div>
 
+    <!-- The core JavaScript code for the application -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // DOM Elements
+            // Get all the necessary DOM elements
             const textInput = document.getElementById('text-input');
             const voiceSelector = document.getElementById('voice-selector');
             const generateButton = document.getElementById('generate-button');
             const dynamicContentArea = document.getElementById('dynamic-content-area');
 
-            // Predefined list of voices
+            // Predefined list of available voices.
             const voices = [
                 { name: 'Kore', label: 'Kore (Firm)' },
                 { name: 'Puck', label: 'Puck (Upbeat)' },
@@ -88,9 +90,16 @@
                 { name: 'Zephyr', label: 'Zephyr (Bright)' },
                 { name: 'Fenrir', label: 'Fenrir (Excitable)' },
                 { name: 'Leda', label: 'Leda (Youthful)' },
+                { name: 'Orus', label: 'Orus (Firm)' },
+                { name: 'Aoede', label: 'Aoede (Breezy)' },
+                { name: 'Callirrhoe', label: 'Callirrhoe (Easy-going)' },
+                { name: 'Autonoe', label: 'Autonoe (Bright)' },
+                { name: 'Enceladus', label: 'Enceladus (Breathy)' },
+                { name: 'Iapetus', label: 'Iapetus (Clear)' },
+                { name: 'Umbriel', label: 'Umbriel (Easy-going)' },
             ];
 
-            // Populate voice selector
+            // Populate the voice selector dropdown with the predefined voices
             voices.forEach(v => {
                 const option = document.createElement('option');
                 option.value = v.name;
@@ -98,7 +107,7 @@
                 voiceSelector.appendChild(option);
             });
 
-            // Base64 to ArrayBuffer utility function
+            // Utility function to convert Base64 string to ArrayBuffer
             const base64ToArrayBuffer = (base64) => {
                 const binaryString = atob(base64);
                 const len = binaryString.length;
@@ -109,7 +118,7 @@
                 return bytes.buffer;
             };
 
-            // PCM to WAV Blob utility function
+            // Utility function to convert PCM audio data to a WAV Blob
             const pcmToWav = (pcmData, sampleRate) => {
                 const dataView = new DataView(new ArrayBuffer(44 + pcmData.length));
                 let offset = 0;
@@ -120,6 +129,7 @@
                     }
                 };
 
+                // Write the RIFF header
                 writeString(dataView, offset, 'RIFF');
                 offset += 4;
                 dataView.setUint32(offset, 36 + pcmData.length, true);
@@ -127,28 +137,31 @@
                 writeString(dataView, offset, 'WAVE');
                 offset += 4;
 
+                // Write the fmt chunk
                 writeString(dataView, offset, 'fmt ');
                 offset += 4;
                 dataView.setUint32(offset, 16, true);
                 offset += 4;
-                dataView.setUint16(offset, 1, true);
+                dataView.setUint16(offset, 1, true); // Audio format (1 for PCM)
                 offset += 2;
-                dataView.setUint16(offset, 1, true);
+                dataView.setUint16(offset, 1, true); // Number of channels (1 for mono)
                 offset += 2;
-                dataView.setUint32(offset, sampleRate, true);
+                dataView.setUint32(offset, sampleRate, true); // Sample rate
                 offset += 4;
-                dataView.setUint32(offset, sampleRate * 2, true);
+                dataView.setUint32(offset, sampleRate * 2, true); // Byte rate
                 offset += 4;
-                dataView.setUint16(offset, 2, true);
+                dataView.setUint16(offset, 2, true); // Block align
                 offset += 2;
-                dataView.setUint16(offset, 16, true);
+                dataView.setUint16(offset, 16, true); // Bits per sample
                 offset += 2;
 
+                // Write the data chunk
                 writeString(dataView, offset, 'data');
                 offset += 4;
-                dataView.setUint32(offset, pcmData.length, true);
+                dataView.setUint32(offset, pcmData.length, true); // Size of the data chunk
                 offset += 4;
 
+                // Copy the PCM data
                 for (let i = 0; i < pcmData.length; i++) {
                     dataView.setUint8(offset + i, pcmData[i]);
                 }
@@ -156,7 +169,7 @@
                 return new Blob([dataView], { type: 'audio/wav' });
             };
 
-            // Custom fetch with exponential backoff for retries
+            // A custom fetch function with exponential backoff for handling API retries
             const exponentialBackoffFetch = async (url, options, retries = 5, delay = 1000) => {
                 for (let i = 0; i < retries; i++) {
                     try {
@@ -178,7 +191,7 @@
                 }
             };
 
-            // Function to display messages and audio player
+            // Function to display messages or the audio player in the UI
             const renderContent = (contentHtml, type = 'html') => {
                 dynamicContentArea.innerHTML = '';
                 if (type === 'html') {
@@ -187,16 +200,17 @@
                     const audioDiv = document.createElement('div');
                     audioDiv.className = 'p-4 bg-gray-100 rounded-lg';
                     audioDiv.innerHTML = `
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">已生成的音訊</h3>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Generated Audio</h3>
                         <audio controls src="${contentHtml}" class="w-full"></audio>
                     `;
                     dynamicContentArea.appendChild(audioDiv);
                 }
             };
 
+            // Function to handle the loading state of the button and UI
             const setLoading = (isLoading) => {
                 generateButton.disabled = isLoading;
-                const buttonText = isLoading ? '正在生成中...' : '生成音訊';
+                const buttonText = isLoading ? 'Generating...' : 'Generate Audio';
                 generateButton.innerHTML = buttonText;
                 generateButton.classList.toggle('bg-indigo-300', isLoading);
                 generateButton.classList.toggle('hover:bg-indigo-700', !isLoading);
@@ -209,47 +223,54 @@
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span class="ml-3 text-gray-600">正在生成語音，這可能需要幾秒鐘...</span>
+                            <span class="ml-3 text-gray-600">Generating voice, this may take a few seconds...</span>
                         </div>
                     `;
                     renderContent(loadingHtml);
                 } else {
+                    // Clear the loading message if no audio is present
                     if (!dynamicContentArea.querySelector('audio')) {
                          renderContent('');
                     }
                 }
             };
 
-            // Event listener for the generate button
+            // Event listener for the generate button click
             generateButton.addEventListener('click', async () => {
                 const text = textInput.value.trim();
                 const voice = voiceSelector.value;
 
                 if (!text) {
-                    renderContent('<div class="p-4 bg-red-100 text-red-700 rounded-lg mb-6 text-center">請輸入一些文字。</div>');
+                    // Display an error message if the text area is empty
+                    renderContent('<div class="p-4 bg-red-100 text-red-700 rounded-lg mb-6 text-center">Please enter some text.</div>');
                     return;
                 }
 
-                let audioUrl = '';
+                // Set the UI to a loading state
                 setLoading(true);
 
-                const prompt = `Say in a natural tone: ${text}`;
-                const payload = {
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseModalities: ["AUDIO"],
-                        speechConfig: {
-                            voiceConfig: {
-                                prebuiltVoiceConfig: { voiceName: voice }
-                            }
-                        }
-                    },
-                    model: "gemini-2.5-flash-preview-tts"
-                };
-                const apiKey = "";
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
-
                 try {
+                    // The API payload for the TTS request
+                    const payload = {
+                        contents: [{
+                            parts: [{ text: text }]
+                        }],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: {
+                                voiceConfig: {
+                                    prebuiltVoiceConfig: { voiceName: voice }
+                                }
+                            }
+                        },
+                        model: "gemini-2.5-flash-preview-tts"
+                    };
+
+                    // The API endpoint. Note: The API key is handled automatically by the environment.
+                    const apiKey = "";
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+                    // Make the API call with exponential backoff
                     const response = await exponentialBackoffFetch(apiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -257,23 +278,36 @@
                     });
 
                     const result = await response.json();
+
+                    // Extract the audio data from the API response
                     const part = result?.candidates?.[0]?.content?.parts?.[0];
                     const audioData = part?.inlineData?.data;
                     const mimeType = part?.inlineData?.mimeType;
 
                     if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                        const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                        const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 16000;
                         const pcmData = base64ToArrayBuffer(audioData);
-                        const sampleRate = 16000;
-                        const wavBlob = pcmToWav(new Uint8Array(pcmData), sampleRate);
-                        audioUrl = URL.createObjectURL(wavBlob);
+
+                        // Convert the raw PCM data to a playable WAV blob
+                        const pcm16 = new Int16Array(pcmData);
+                        const wavBlob = pcmToWav(pcm16, sampleRate);
+                        const audioUrl = URL.createObjectURL(wavBlob);
+
+                        // Display the audio player in the UI
                         renderContent(audioUrl, 'audio');
                     } else {
-                        renderContent('<div class="p-4 bg-red-100 text-red-700 rounded-lg mb-6 text-center">音訊產生失敗，請再試一次。</div>');
+                        // Handle cases where the API response is not in the expected format
+                        console.error('API response error: Audio data or mime type is missing.');
+                        renderContent('<div class="p-4 bg-red-100 text-red-700 rounded-lg text-center">Sorry, there was an error generating the audio. Please try again.</div>');
                     }
-                } catch (err) {
-                    console.error(err);
-                    renderContent(`<div class="p-4 bg-red-100 text-red-700 rounded-lg mb-6 text-center">錯誤: ${err.message}</div>`);
+
+                } catch (error) {
+                    // Display a user-friendly error message on the UI
+                    console.error('Fetch error:', error);
+                    renderContent('<div class="p-4 bg-red-100 text-red-700 rounded-lg text-center">Failed to connect to the audio generation service. Please check your internet connection and try again.</div>');
                 } finally {
+                    // Reset the button and UI state
                     setLoading(false);
                 }
             });
