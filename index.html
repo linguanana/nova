@@ -169,20 +169,34 @@
                 return new Blob([dataView], { type: 'audio/wav' });
             };
 
-            // A custom fetch function with exponential backoff for handling API retries
+            // A custom fetch function with exponential backoff for handling API retries and specific error handling
             const exponentialBackoffFetch = async (url, options, retries = 5, delay = 1000) => {
                 for (let i = 0; i < retries; i++) {
                     try {
                         const response = await fetch(url, options);
+
+                        // Handle 403 Forbidden specifically, as this is likely a misconfiguration, not a temporary issue.
+                        if (response.status === 403) {
+                            throw new Error('API authentication failed (403 Forbidden). Please check your API key.');
+                        }
+
+                        // Handle other rate limiting or temporary errors with retries
                         if (response.status === 429 && i < retries - 1) {
                             await new Promise(resolve => setTimeout(resolve, delay * (2 ** i)));
                             continue;
                         }
+
+                        // Throw an error for other non-OK responses
                         if (!response.ok) {
                             throw new Error(`API error: ${response.statusText}`);
                         }
                         return response;
                     } catch (error) {
+                        // Re-throw the error immediately if it's a 403
+                        if (error.message.includes('403 Forbidden')) {
+                            throw error;
+                        }
+                        // Retry for other errors
                         if (i === retries - 1) {
                             throw error;
                         }
@@ -305,7 +319,11 @@
                 } catch (error) {
                     // Display a user-friendly error message on the UI
                     console.error('Fetch error:', error);
-                    renderContent('<div class="p-4 bg-red-100 text-red-700 rounded-lg text-center">Failed to connect to the audio generation service. Please check your internet connection and try again.</div>');
+                    let errorMessage = 'Failed to connect to the audio generation service. Please check your internet connection and try again.';
+                    if (error.message.includes('403 Forbidden')) {
+                        errorMessage = 'Error: The API request was unauthorized. This is likely due to an issue with the API key.';
+                    }
+                    renderContent(`<div class="p-4 bg-red-100 text-red-700 rounded-lg text-center">${errorMessage}</div>`);
                 } finally {
                     // Reset the button and UI state
                     setLoading(false);
