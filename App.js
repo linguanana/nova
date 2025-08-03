@@ -1,367 +1,336 @@
-import React, { useState, useEffect, useRef } from 'react';
-import ReactDOM from 'react-dom/client';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
-import { twMerge } from 'tailwind-merge';
+mport { useState, useEffect } from 'react';
+import {
+    Upload, Link, Globe, PlayCircle, Download, FileText, Loader, XCircle, ChevronDown
+} from 'lucide-react';
 
-// Helper function to convert base64 to ArrayBuffer
-const base64ToArrayBuffer = (base64) => {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
-};
-
-// Helper function to create a WAV file from PCM data
-const pcmToWav = (pcmData, sampleRate) => {
-  const dataLength = pcmData.byteLength;
-  const buffer = new ArrayBuffer(44 + dataLength);
-  const view = new DataView(buffer);
-  const pcm16 = new Int16Array(pcmData);
-
-  // RIFF identifier
-  writeString(view, 0, 'RIFF');
-  // file length
-  view.setUint32(4, 36 + dataLength, true);
-  // RIFF type
-  writeString(view, 8, 'WAVE');
-  // format chunk identifier
-  writeString(view, 12, 'fmt ');
-  // format chunk length
-  view.setUint32(16, 16, true);
-  // sample format (1 = PCM)
-  view.setUint16(20, 1, true);
-  // channel count
-  view.setUint16(22, 1, true);
-  // sample rate
-  view.setUint32(24, sampleRate, true);
-  // byte rate (sample rate * block align)
-  view.setUint32(28, sampleRate * 2, true);
-  // block align (channels * bytes per sample)
-  view.setUint16(32, 2, true);
-  // bits per sample
-  view.setUint16(34, 16, true);
-  // data chunk identifier
-  writeString(view, 36, 'data');
-  // data chunk length
-  view.setUint32(40, dataLength, true);
-
-  // Write PCM data
-  let offset = 44;
-  for (let i = 0; i < pcm16.length; i++) {
-    view.setInt16(offset, pcm16[i], true);
-    offset += 2;
-  }
-
-  return new Blob([buffer], { type: 'audio/wav' });
-};
-
-// Helper function for writing strings to a DataView
-const writeString = (view, offset, string) => {
-  for (let i = 0; i < string.length; i++) {
-    view.setUint8(offset + i, string.charCodeAt(i));
-  }
-};
-
-// Supported languages and their corresponding voice configurations
-const supportedLanguages = [
-    { code: 'zh-TW', name: '中文 (台灣)', voiceName: 'Kore' },
-    { code: 'en-US', name: 'English (US)', voiceName: 'Zephyr' },
-    { code: 'ja-JP', name: '日本語', voiceName: 'Puck' },
-    { code: 'ko-KR', name: '한국어', voiceName: 'Charon' },
-    { code: 'es-US', name: 'Español (US)', voiceName: 'Fenrir' },
-    { code: 'fr-FR', name: 'Français', voiceName: 'Leda' },
-    { code: 'de-DE', name: 'Deutsch', voiceName: 'Orus' },
+const languageOptions = [
+    { value: 'de-DE', label: '德語 (German)' },
+    { value: 'fr-FR', label: '法語 (French)' },
+    { value: 'ja-JP', label: '日語 (Japanese)' },
+    { value: 'ko-KR', label: '韓語 (Korean)' },
+    { value: 'es-US', label: '西班牙語 (Spanish)' },
 ];
 
-// Firebase configuration from the Canvas environment
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// Helper functions for audio processing (same as previous example)
+const base64ToArrayBuffer = (base64) => {
+    const binaryString = window.atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+};
 
-// The main application component
+const pcmToWav = (pcm16, sampleRate) => {
+    const dataLength = pcm16.length * 2;
+    const buffer = new ArrayBuffer(44 + dataLength);
+    const view = new DataView(buffer);
+    let offset = 0;
+
+    const writeString = (str) => {
+        for (let i = 0; i < str.length; i++) {
+            view.setUint8(offset++, str.charCodeAt(i));
+        }
+    };
+
+    writeString('RIFF');
+    view.setUint32(offset, 36 + dataLength, true); offset += 4;
+    writeString('WAVE');
+    writeString('fmt ');
+    view.setUint32(offset, 16, true); offset += 4;
+    view.setUint16(offset, 1, true); offset += 2;
+    view.setUint16(offset, 1, true); offset += 2;
+    view.setUint32(offset, sampleRate, true); offset += 4;
+    view.setUint32(offset, sampleRate * 2, true); offset += 4;
+    view.setUint16(offset, 2, true); offset += 2;
+    view.setUint16(offset, 16, true); offset += 2;
+    writeString('data');
+    view.setUint32(offset, dataLength, true); offset += 4;
+
+    for (let i = 0; i < pcm16.length; i++, offset += 2) {
+        view.setInt16(offset, pcm16[i], true);
+    }
+
+    return new Blob([view], { type: 'audio/wav' });
+};
+
+// Main App Component
 const App = () => {
-    const [inputValue, setInputValue] = useState('');
-    const [selectedLanguage, setSelectedLanguage] = useState(supportedLanguages[0].code);
-    const [audioUrl, setAudioUrl] = useState(null);
-    const [srtUrl, setSrtUrl] = useState(null);
+    const [file, setFile] = useState(null);
+    const [youtubeUrl, setYoutubeUrl] = useState('');
+    const [targetLang, setTargetLang] = useState('de-DE');
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [userId, setUserId] = useState(null);
-    const [authInitialized, setAuthInitialized] = useState(false);
-    const appRef = useRef(null);
-    const authRef = useRef(null);
+    const [progressMessage, setProgressMessage] = useState('');
+    const [error, setError] = useState('');
+    const [translatedAudioUrl, setTranslatedAudioUrl] = useState(null);
+    const [srtContent, setSrtContent] = useState('');
+    const [isPlaying, setIsPlaying] = useState(false);
 
-    // Initialize Firebase and handle authentication
-    useEffect(() => {
-        if (appRef.current) return;
+    const handleFileChange = (e) => {
+        setFile(e.target.files[0]);
+        setYoutubeUrl('');
+    };
 
-        try {
-            const firebaseApp = initializeApp(firebaseConfig);
-            const authInstance = getAuth(firebaseApp);
+    const handleYoutubeChange = (e) => {
+        setYoutubeUrl(e.target.value);
+        setFile(null);
+    };
 
-            appRef.current = firebaseApp;
-            authRef.current = authInstance;
-
-            const unsubscribe = onAuthStateChanged(authInstance, (user) => {
-                if (user) {
-                    setUserId(user.uid);
-                } else {
-                    setUserId(null);
-                }
-                setAuthInitialized(true);
-            });
-
-            const signIn = async () => {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(authInstance, initialAuthToken);
-                } else {
-                    await signInAnonymously(authInstance);
-                }
-            };
-            signIn();
-
-            return () => unsubscribe();
-        } catch (e) {
-            console.error("Firebase Initialization Error:", e);
-            setError("Firebase initialization failed.");
-            setAuthInitialized(true);
-        }
-    }, []);
-
-    // Handles content fetching and generation
-    const handleGenerate = async () => {
-        if (!inputValue.trim()) {
-            setError("請輸入內容或 GitHub URL。");
-            return;
-        }
-
+    const handleTranslate = async () => {
+        setError('');
         setIsLoading(true);
-        setAudioUrl(null);
-        setSrtUrl(null);
-        setError(null);
+        setTranslatedAudioUrl(null);
+        setSrtContent('');
+        setProgressMessage('正在啟動處理程序...');
+
+        // IMPORTANT: In a real-world application, this entire process would be handled by a secure backend server.
+        // The front-end would only send the file/URL and target language to the backend.
+        // The backend would handle API keys, file processing, and API calls.
+        // Here, we simulate the process and show how it would work in a real app.
 
         try {
-            let textContent = inputValue.trim();
+            // Step 1: Backend process - Fetch/Transcribe the audio
+            // A real backend would:
+            // - If file: Receive the MP3 upload.
+            // - If YouTube URL: Use the YouTube API to download the video's audio track.
+            // - Use an ASR (Automatic Speech Recognition) model to transcribe the audio to text and get timestamps.
+            // For this demo, we'll use a mock transcription.
+            setProgressMessage('正在下載音訊並進行語音轉文字...');
+            const mockTranscription = "Hello everyone, and welcome to today's lesson. We will be learning about the solar system and the planets within it. It's a fascinating topic that helps us understand our place in the universe. Let's get started!";
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate delay
 
-            // Check if the input is a GitHub URL
-            if (inputValue.startsWith('https://github.com/')) {
-                // Fetch the content from the GitHub raw URL
-                const rawUrl = inputValue
-                    .replace('github.com', 'raw.githubusercontent.com')
-                    .replace('/blob/', '/');
+            // Step 2: Translate the transcribed text using Gemini LLM
+            setProgressMessage('正在將文本翻譯成目標語言...');
+            const translationPrompt = `將這段文字翻譯成語言代碼為 "${targetLang}" 的語言。僅回傳翻譯後的內容，不要有任何其他文字。原文：\n\n${mockTranscription}`;
+            const translationPayload = {
+                contents: [{ role: "user", parts: [{ text: translationPrompt }] }],
+            };
 
-                const response = await fetch(rawUrl);
-                if (!response.ok) {
-                    throw new Error(`無法從 GitHub 獲取檔案，狀態碼: ${response.status}`);
-                }
-                textContent = await response.text();
+            const translationResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(translationPayload)
+            });
+            const translationResult = await translationResponse.json();
+
+            if (!translationResult.candidates || !translationResult.candidates[0].content.parts[0].text) {
+                throw new Error("翻譯失敗，請再試一次。");
             }
+            const translatedText = translationResult.candidates[0].content.parts[0].text;
 
-            if (!textContent) {
-                throw new Error("無法從提供的內容或 URL 擷取文字。");
-            }
-
-            const selectedVoiceConfig = supportedLanguages.find(lang => lang.code === selectedLanguage);
-            if (!selectedVoiceConfig) {
-                throw new Error("無效的語言選擇。");
-            }
-
-            // Generate Audio
+            // Step 3: Generate TTS audio for the translated text
+            setProgressMessage('正在生成翻譯後的語音...');
             const audioPayload = {
-                contents: [{ parts: [{ text: textContent }] }],
+                contents: [{ parts: [{ text: translatedText }] }],
                 generationConfig: {
                     responseModalities: ["AUDIO"],
                     speechConfig: {
                         voiceConfig: {
-                            prebuiltVoiceConfig: { voiceName: selectedVoiceConfig.voiceName }
+                            prebuiltVoiceConfig: { voiceName: "Kore" }
                         }
-                    },
+                    }
                 },
                 model: "gemini-2.5-flash-preview-tts"
             };
 
-            const audioApiKey = "";
-            const audioApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${audioApiKey}`;
-
-            const audioResponse = await fetch(audioApiUrl, {
+            const audioResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(audioPayload)
             });
-
-            if (!audioResponse.ok) {
-                throw new Error(`TTS API request failed with status ${audioResponse.status}`);
-            }
-
             const audioResult = await audioResponse.json();
-            const part = audioResult?.candidates?.[0]?.content?.parts?.[0];
-            const audioData = part?.inlineData?.data;
-            const mimeType = part?.inlineData?.mimeType;
 
-            if (audioData && mimeType && mimeType.startsWith("audio/")) {
-                const sampleRate = 16000; // API returns 16kHz PCM audio
-                const pcmData = base64ToArrayBuffer(audioData);
-                const wavBlob = pcmToWav(pcmData, sampleRate);
-                const url = URL.createObjectURL(wavBlob);
-                setAudioUrl(url);
-            } else {
-                throw new Error('TTS API 回應格式不正確。');
+            if (!audioResult.candidates || !audioResult.candidates[0].content.parts[0].inlineData) {
+                throw new Error("語音生成失敗，請再試一次。");
             }
+            const audioData = audioResult.candidates[0].content.parts[0].inlineData.data;
+            const pcmData = base64ToArrayBuffer(audioData);
+            const pcm16 = new Int16Array(pcmData);
+            const sampleRate = 24000;
+            const wavBlob = pcmToWav(pcm16, sampleRate);
+            const url = URL.createObjectURL(wavBlob);
+            setTranslatedAudioUrl(url);
 
-            // Generate SRT
-            const srtContent = generateSrt(textContent);
-            const srtBlob = new Blob([srtContent], { type: 'text/plain' });
-            const srtUrl = URL.createObjectURL(srtBlob);
-            setSrtUrl(srtUrl);
+            // Step 4: Generate SRT subtitle file
+            // A real backend would use the timestamps from the ASR step and the translated text
+            // to create a proper SRT file. For this demo, we'll create a simple one.
+            setProgressMessage('正在生成 SRT 字幕檔案...');
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
+            const srt = `1
+00:00:00,000 --> 00:00:05,000
+${translatedText.replace(/\n/g, ' ')}
+            `;
+            setSrtContent(srt);
 
-        } catch (err) {
-            console.error("生成錯誤:", err);
-            setError(err.message);
+            setProgressMessage('處理完成！');
+        } catch (e) {
+            console.error("處理失敗:", e);
+            setError(`處理失敗: ${e.message}`);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Helper function to generate SRT content (simplified)
-    const generateSrt = (text) => {
-        const sentences = text.match(/[^.!?\n\r]+[.!?\n\r]*/g) || [text];
-        let srt = '';
-        let time = 0;
-        const durationPerSentence = 3000; // 假設每句3秒
-
-        sentences.forEach((sentence, index) => {
-            const startTime = time;
-            time += durationPerSentence;
-            const endTime = time;
-
-            const formatTime = (ms) => {
-                const h = Math.floor(ms / 3600000).toString().padStart(2, '0');
-                const m = Math.floor((ms % 3600000) / 60000).toString().padStart(2, '0');
-                const s = Math.floor((ms % 60000) / 1000).toString().padStart(2, '0');
-                const msPart = (ms % 1000).toString().padStart(3, '0');
-                return `${h}:${m}:${s},${msPart}`;
-            };
-
-            srt += `${index + 1}\n`;
-            srt += `${formatTime(startTime)} --> ${formatTime(endTime)}\n`;
-            srt += `${sentence.trim()}\n\n`;
+    const handlePlayAudio = () => {
+        if (!translatedAudioUrl) return;
+        const audio = new Audio(translatedAudioUrl);
+        audio.onplay = () => setIsPlaying(true);
+        audio.onended = () => setIsPlaying(false);
+        audio.play().catch(e => {
+            console.error("Audio playback error:", e);
+            setError("無法播放音訊，請確認瀏覽器權限。");
         });
-
-        return srt;
     };
 
-    const inputClasses = "w-full p-3 rounded-xl border-2 border-gray-300 focus:outline-none focus:border-blue-500 transition-all duration-300 bg-white shadow-sm";
+    const handleDownload = (content, filename, mimeType) => {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
 
     return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans antialiased">
-            <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl w-full max-w-xl space-y-6 transform transition-transform duration-500 hover:scale-[1.01] border border-gray-200">
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-gray-800 tracking-tight">
-                    簡易語音與字幕生成器
+        <div className="bg-gray-50 min-h-screen p-8 flex flex-col items-center font-sans text-gray-800">
+            <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl p-8 space-y-8">
+                <h1 className="text-4xl font-extrabold text-center text-indigo-600 tracking-wide">
+                    多語言音訊影片翻譯服務
                 </h1>
+                <p className="text-center text-lg text-gray-600">
+                    上傳 MP3 檔案或輸入 YouTube 連結，並選擇目標語言，即可自動生成翻譯後的音訊和 SRT 字幕。
+                </p>
 
-                {authInitialized && (
-                    <div className="text-center text-sm text-gray-500">
-                        目前使用者 ID: {userId ? userId : "匿名使用者"}
+                {/* Input Selection */}
+                <div className="flex flex-col space-y-4">
+                    <div className="bg-gray-100 p-6 rounded-2xl flex flex-col space-y-4">
+                        <label className="flex items-center text-xl font-semibold text-gray-700">
+                            <Upload className="mr-3" />
+                            輸入方式 1: 上傳 MP3 檔案
+                        </label>
+                        <input
+                            type="file"
+                            accept=".mp3"
+                            onChange={handleFileChange}
+                            className="text-lg file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-lg file:font-semibold file:bg-indigo-500 file:text-white hover:file:bg-indigo-600 transition-colors cursor-pointer"
+                        />
                     </div>
-                )}
 
-                <div className="space-y-4">
-                    <label className="block text-gray-700 font-semibold text-lg">
-                        輸入內容或 GitHub URL
-                    </label>
-                    <textarea
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        className={twMerge(inputClasses, "h-40 resize-none")}
-                        placeholder="請貼上文字或 GitHub 文件 URL (例如: .txt, .md)..."
-                    ></textarea>
+                    <div className="text-center text-2xl font-bold text-gray-400">或</div>
+
+                    <div className="bg-gray-100 p-6 rounded-2xl flex flex-col space-y-4">
+                        <label className="flex items-center text-xl font-semibold text-gray-700">
+                            <Link className="mr-3" />
+                            輸入方式 2: YouTube 連結
+                        </label>
+                        <input
+                            type="text"
+                            value={youtubeUrl}
+                            onChange={handleYoutubeChange}
+                            placeholder="例如：https://www.youtube.com/watch?v=..."
+                            className="p-4 border-2 border-gray-300 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all text-lg"
+                        />
+                    </div>
                 </div>
 
-                <div className="space-y-4">
-                    <label className="block text-gray-700 font-semibold text-lg">
-                        選擇語言
+                {/* Language Selection */}
+                <div className="flex flex-col space-y-4">
+                    <label htmlFor="language-select" className="flex items-center text-xl font-semibold text-gray-700">
+                        <Globe className="mr-3" />
+                        選擇目標語言
                     </label>
-                    <select
-                        value={selectedLanguage}
-                        onChange={(e) => setSelectedLanguage(e.target.value)}
-                        className={inputClasses}
-                    >
-                        {supportedLanguages.map(lang => (
-                            <option key={lang.code} value={lang.code}>{lang.name}</option>
-                        ))}
-                    </select>
+                    <div className="relative">
+                        <select
+                            id="language-select"
+                            value={targetLang}
+                            onChange={(e) => setTargetLang(e.target.value)}
+                            className="block w-full p-4 border-2 border-gray-300 rounded-xl appearance-none bg-white text-lg focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 pr-10"
+                        >
+                            {languageOptions.map(lang => (
+                                <option key={lang.value} value={lang.value}>
+                                    {lang.label}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                            <ChevronDown className="h-6 w-6" />
+                        </div>
+                    </div>
                 </div>
 
+                {/* Submit Button */}
                 <button
-                    onClick={handleGenerate}
-                    className="w-full px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    disabled={isLoading}
+                    onClick={handleTranslate}
+                    disabled={isLoading || (!file && !youtubeUrl)}
+                    className="w-full py-4 px-6 bg-indigo-600 text-white font-bold text-xl rounded-xl shadow-lg hover:bg-indigo-700 disabled:bg-indigo-300 transition-colors duration-200 ease-in-out transform hover:scale-105 active:scale-100 flex items-center justify-center space-x-2"
                 >
                     {isLoading ? (
                         <>
-                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            正在生成中...
+                            <Loader className="animate-spin" />
+                            <span>{progressMessage}</span>
                         </>
-                    ) : '生成語音與字幕'}
+                    ) : (
+                        <span>開始翻譯和生成</span>
+                    )}
                 </button>
 
+                {/* Error Display */}
                 {error && (
-                    <div className="bg-red-100 text-red-700 p-4 rounded-xl border border-red-200 mt-4 text-center">
-                        {error}
+                    <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg flex items-start space-x-3">
+                        <XCircle className="mt-1 flex-shrink-0" />
+                        <p className="font-bold">發生錯誤：</p>
+                        <p>{error}</p>
                     </div>
                 )}
 
-                {(audioUrl || srtUrl) && (
-                    <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200 mt-4 space-y-4 shadow-inner">
-                        <h2 className="text-xl font-bold text-gray-800">生成結果</h2>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            {audioUrl && (
-                                <a
-                                    href={audioUrl}
-                                    download="generated_audio.wav"
-                                    className="flex-1 px-6 py-3 text-center bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition-colors"
-                                >
-                                    下載 WAV 語音
-                                </a>
+                {/* Results Display */}
+                {(translatedAudioUrl || srtContent) && (
+                    <div className="bg-green-50 p-6 rounded-2xl border-2 border-green-200 space-y-4">
+                        <h2 className="text-2xl font-bold text-green-800 text-center">處理完成！</h2>
+                        <p className="text-lg text-center text-gray-700">您可以下載或預覽生成的檔案。</p>
+
+                        <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-6">
+                            {translatedAudioUrl && (
+                                <div className="flex flex-col items-center space-y-2">
+                                    <button
+                                        onClick={handlePlayAudio}
+                                        className="py-3 px-6 bg-blue-500 text-white font-bold text-lg rounded-xl shadow-md hover:bg-blue-600 transition-colors flex items-center space-x-2"
+                                        disabled={isPlaying}
+                                    >
+                                        <PlayCircle />
+                                        <span>{isPlaying ? '播放中...' : '播放翻譯音訊'}</span>
+                                    </button>
+                                    <a
+                                        href={translatedAudioUrl}
+                                        download="translated_audio.wav"
+                                        className="py-3 px-6 bg-green-500 text-white font-bold text-lg rounded-xl shadow-md hover:bg-green-600 transition-colors flex items-center space-x-2"
+                                    >
+                                        <Download />
+                                        <span>下載翻譯音訊 (WAV)</span>
+                                    </a>
+                                </div>
                             )}
-                            {srtUrl && (
+
+                            {srtContent && (
                                 <a
-                                    href={srtUrl}
-                                    download="generated_subtitles.srt"
-                                    className="flex-1 px-6 py-3 text-center bg-purple-600 text-white font-bold rounded-xl shadow-lg hover:bg-purple-700 transition-colors"
+                                    href={`data:text/plain;charset=utf-8,${encodeURIComponent(srtContent)}`}
+                                    download="subtitles.srt"
+                                    className="py-3 px-6 bg-purple-500 text-white font-bold text-lg rounded-xl shadow-md hover:bg-purple-600 transition-colors flex items-center space-x-2"
                                 >
-                                    下載 SRT 字幕
+                                    <FileText />
+                                    <span>下載 SRT 字幕檔</span>
                                 </a>
                             )}
                         </div>
-                        {audioUrl && (
-                            <div className="mt-4">
-                                <h3 className="text-md font-bold text-gray-800">預覽音訊</h3>
-                                <audio controls className="w-full mt-2 rounded-xl">
-                                    <source src={audioUrl} type="audio/wav" />
-                                    您的瀏覽器不支援音訊元素。
-                                </audio>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>
         </div>
     );
 };
-
-// 渲染應用程式
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-    <React.StrictMode>
-        <App />
-    </React.StrictMode>
-);
 
 export default App;
