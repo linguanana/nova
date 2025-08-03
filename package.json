@@ -1,8 +1,7 @@
-// package.json
 {
   "name": "react-app",
   "version": "1.0.0",
-  "description": "A simple React app for GitHub Pages",
+  "description": "A simple React app for AI image analysis",
   "main": "index.html",
   "scripts": {
     "start": "npx http-server .",
@@ -10,7 +9,8 @@
   },
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "tailwind-merge": "^2.3.0"
   },
   "devDependencies": {
     "gh-pages": "^6.1.1",
