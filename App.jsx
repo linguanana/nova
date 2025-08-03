@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
-import { twMerge } from 'tailwind-merge'; // 這裡已經修正為正確的 twMerge
+import { twMerge } from 'tailwind-merge';
 
 // 檢查 Canvas 環境中是否提供了 Firebase 設定和 auth token
 const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
@@ -63,7 +63,6 @@ const App = () => {
     // 處理圖片上傳
     const handleImageChange = (e) => {
         const file = e.target.files[0];
-        // 這裡的 accept="image/*" 屬性確保只接受圖片檔案
         if (file) {
             setImageFile(file);
         }
