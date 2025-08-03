@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom/client';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { tailwindMerge } from 'tailwind-merge';
@@ -106,7 +107,7 @@ const App = () => {
                                     { text: prompt },
                                     {
                                         inlineData: {
-                                            mimeType: "image/jpeg", // 假設上傳的是 JPEG，如果需要更通用，可以動態獲取
+                                            mimeType: "image/jpeg", // 假設上傳的是 JPEG
                                             data: base64ImageData
                                         }
                                     }
@@ -242,5 +243,13 @@ const App = () => {
         </div>
     );
 };
+
+// 渲染應用程式
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+    <React.StrictMode>
+        <App />
+    </React.StrictMode>
+);
 
 export default App;
