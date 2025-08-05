@@ -1,334 +1,403 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TTS & Caption Generator</title>
-    <!-- We are using Tailwind CSS for a clean, modern design. The CDN link makes it easy to use on any website. -->
+    <title>多語言轉換工具</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        /* Using the Inter font for a better look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f1f5f9;
         }
-        /* Custom scrollbar for the text area */
-        textarea::-webkit-scrollbar {
-            width: 8px;
-        }
-        textarea::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
-            border-radius: 4px;
-        }
-        textarea::-webkit-scrollbar-track {
-            background-color: #f1f5f9;
+        /* Custom styles for Lucide icons */
+        .icon {
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
     </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl border border-gray-200">
-        <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-2">
-            TTS & Caption Generator
-        </h1>
-        <p class="text-center text-gray-500 mb-8">
-            Type your text, select a voice, and generate audio.
-        </p>
+<body class="bg-gradient-to-br from-blue-100 to-indigo-200 min-h-screen p-8 flex items-center justify-center">
 
-        <!-- Text Input Area for the user's script -->
-        <div class="mb-6">
-            <label for="text-input" class="block text-sm font-medium text-gray-700 mb-2">
-                Enter Your Text
+    <div class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-8 space-y-8">
+        <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-6 tracking-tight">
+            多語言轉換工具
+        </h1>
+
+        <!-- Error Message Container -->
+        <div id="error-message" class="hidden bg-red-500 text-white p-4 rounded-xl items-center gap-2">
+            <svg class="icon" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <span class="font-medium" id="error-text"></span>
+        </div>
+
+        <!-- Input for YouTube URL -->
+        <div class="space-y-4">
+            <label for="youtube-url" class="block text-sm font-medium text-gray-700">
+                YouTube 網址
+            </label>
+            <input
+                id="youtube-url"
+                type="text"
+                placeholder="例如: https://www.youtube.com/watch?v=..."
+                class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+            />
+        </div>
+
+        <div class="relative flex items-center justify-center my-6">
+            <div class="w-full h-px bg-gray-300"></div>
+            <span class="absolute bg-white px-4 text-gray-500 text-sm font-medium">或</span>
+        </div>
+
+        <!-- Compact Input for MP3 File -->
+        <div class="space-y-4">
+            <label for="mp3-file-input" class="block text-sm font-medium text-gray-700">
+                上傳 MP3 檔案
+            </label>
+            <div class="flex items-center space-x-2">
+                <input
+                    id="mp3-file-input"
+                    type="file"
+                    class="hidden"
+                    accept=".mp3"
+                />
+                <label
+                    for="mp3-file-input"
+                    id="mp3-file-label"
+                    class="flex-grow p-3 bg-gray-100 text-gray-500 rounded-xl border border-gray-300 cursor-pointer transition-colors hover:bg-gray-200"
+                >
+                    選擇檔案...
+                </label>
+            </div>
+            <p id="file-name-display" class="text-sm text-gray-600 text-center mt-2 hidden">
+                已選擇檔案: <span class="font-semibold"></span>
+            </p>
+        </div>
+
+        <div class="relative flex items-center justify-center my-6">
+            <div class="w-full h-px bg-gray-300"></div>
+            <span class="absolute bg-white px-4 text-gray-500 text-sm font-medium">或</span>
+        </div>
+
+        <!-- Input for Direct Text -->
+        <div class="space-y-4">
+            <label for="source-text" class="block text-sm font-medium text-gray-700">
+                直接輸入文字
             </label>
             <textarea
-                id="text-input"
-                class="w-full p-4 h-40 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
-                placeholder="Enter your script here..."
+                id="source-text"
+                placeholder="在此輸入您想要轉換的文字..."
+                rows="5"
+                class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors resize-y"
             ></textarea>
         </div>
 
-        <!-- Voice Selector dropdown -->
-        <div class="mb-6">
-            <label for="voice-selector" class="block text-sm font-medium text-gray-700 mb-2">
-                Choose a Voice
+        <!-- Language Selection -->
+        <div class="space-y-4">
+            <label for="language-select" class="block text-sm font-medium text-gray-700">
+                選擇目標語言
             </label>
             <select
-                id="voice-selector"
-                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
+                id="language-select"
+                class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
             >
-                <!-- The voices will be populated here by the JavaScript code below -->
+                <option value="zh-TW">繁體中文</option>
+                <option value="en-US">English (US)</option>
+                <option value="ja-JP">日本語</option>
+                <option value="ko-KR">한국어</option>
+                <option value="es-US">Español (US)</option>
+                <option value="it-IT">Italiano</option>
+                <option value="fr-FR">Français</option>
             </select>
         </div>
 
-        <!-- The Generate button -->
-        <div class="mb-6">
-            <button
-                id="generate-button"
-                class="w-full py-4 px-6 rounded-lg font-bold text-white transition-all duration-200 bg-indigo-600 hover:bg-indigo-700 active:scale-95"
-            >
-                Generate Audio
-            </button>
+        <!-- Process Button -->
+        <button
+            id="process-btn"
+            class="w-full flex items-center justify-center py-3 px-6 rounded-xl text-lg font-bold text-white transition-all duration-300 bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg"
+        >
+            開始轉換
+        </button>
+
+        <!-- Loading Indicator -->
+        <div id="loading-spinner" class="hidden flex items-center justify-center text-indigo-600 space-x-2">
+            <svg class="animate-spin" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4m8.5-10h-4m-13 0h-4M4.9 4.9l2.8 2.8m10.3 10.3l2.8 2.8M2 12h4m12 0h4m-15.5-2.5l-2.8-2.8m10.3 10.3l2.8 2.8"/></svg>
+            <span>處理中...</span>
         </div>
 
-        <!-- This area will dynamically show the loading indicator, error messages, or the audio player -->
-        <div id="dynamic-content-area"></div>
+        <!-- Results Container -->
+        <div id="results-container" class="hidden mt-8 p-6 bg-gray-50 rounded-2xl shadow-inner space-y-4">
+            <h2 class="text-2xl font-bold text-gray-800 text-center">
+                轉換完成！
+            </h2>
+            <div class="space-y-4">
+                <div class="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <audio id="translated-audio" controls class="w-full">
+                        您的瀏覽器不支援音訊元素。
+                    </audio>
+                </div>
+                <a
+                    id="download-audio-btn"
+                    download="translated_audio.wav"
+                    class="w-full flex items-center justify-center py-3 px-6 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition-colors"
+                >
+                    <svg class="icon mr-2" width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    下載 WAV
+                </a>
+            </div>
+
+            <div class="mt-4 space-y-2">
+                <h3 class="text-xl font-semibold text-gray-800">
+                    生成的 SRT 字幕
+                </h3>
+                <textarea
+                    id="srt-content"
+                    readonly
+                    class="w-full h-40 p-4 border border-gray-300 rounded-xl bg-white font-mono text-sm resize-none"
+                ></textarea>
+                <button
+                    id="download-srt-btn"
+                    class="w-full flex items-center justify-center py-3 px-6 bg-blue-500 text-white font-bold rounded-xl hover:bg-blue-600 transition-colors"
+                >
+                    <svg class="icon mr-2" width="20" height="20" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    下載 SRT 檔
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- The core JavaScript code for the application -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Get all the necessary DOM elements
-            const textInput = document.getElementById('text-input');
-            const voiceSelector = document.getElementById('voice-selector');
-            const generateButton = document.getElementById('generate-button');
-            const dynamicContentArea = document.getElementById('dynamic-content-area');
+        // API placeholders and helper functions
+        const apiKey = "";
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-            // Predefined list of available voices.
-            const voices = [
-                { name: 'Kore', label: 'Kore (Firm)' },
-                { name: 'Puck', label: 'Puck (Upbeat)' },
-                { name: 'Charon', label: 'Charon (Informative)' },
-                { name: 'Zephyr', label: 'Zephyr (Bright)' },
-                { name: 'Fenrir', label: 'Fenrir (Excitable)' },
-                { name: 'Leda', label: 'Leda (Youthful)' },
-                { name: 'Orus', label: 'Orus (Firm)' },
-                { name: 'Aoede', label: 'Aoede (Breezy)' },
-                { name: 'Callirrhoe', label: 'Callirrhoe (Easy-going)' },
-                { name: 'Autonoe', label: 'Autonoe (Bright)' },
-                { name: 'Enceladus', label: 'Enceladus (Breathy)' },
-                { name: 'Iapetus', label: 'Iapetus (Clear)' },
-                { name: 'Umbriel', label: 'Umbriel (Easy-going)' },
-            ];
+        const base64ToArrayBuffer = (base64) => {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        };
 
-            // Populate the voice selector dropdown with the predefined voices
-            voices.forEach(v => {
-                const option = document.createElement('option');
-                option.value = v.name;
-                option.textContent = v.label;
-                voiceSelector.appendChild(option);
-            });
-
-            // Utility function to convert Base64 string to ArrayBuffer
-            const base64ToArrayBuffer = (base64) => {
-                const binaryString = atob(base64);
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
+        const pcmToWav = (pcmData, sampleRate) => {
+            const dataView = new DataView(new ArrayBuffer(44 + pcmData.length * 2));
+            let offset = 0;
+            const writeString = (str) => {
+                for (let i = 0; i < str.length; i++) {
+                    dataView.setUint8(offset + i, str.charCodeAt(i));
                 }
-                return bytes.buffer;
             };
+            const writeUint16 = (val) => {
+                dataView.setUint16(offset, val, true);
+                offset += 2;
+            };
+            const writeUint32 = (val) => {
+                dataView.setUint32(offset, val, true);
+                offset += 4;
+            };
+            writeString('RIFF'); offset += 4;
+            writeUint32(36 + pcmData.length * 2);
+            writeString('WAVE'); offset += 4;
+            writeString('fmt '); offset += 4;
+            writeUint32(16);
+            writeUint16(1);
+            writeUint16(1);
+            writeUint32(sampleRate);
+            writeUint32(sampleRate * 2);
+            writeUint16(2);
+            writeUint16(16);
+            writeString('data'); offset += 4;
+            writeUint32(pcmData.length * 2);
+            for (let i = 0; i < pcmData.length; i++) {
+                dataView.setInt16(offset, pcmData[i], true);
+                offset += 2;
+            }
+            return new Blob([dataView], { type: 'audio/wav' });
+        };
 
-            // Utility function to convert PCM audio data to a WAV Blob
-            const pcmToWav = (pcmData, sampleRate) => {
-                const dataView = new DataView(new ArrayBuffer(44 + pcmData.length));
-                let offset = 0;
+        const getVoiceForLanguage = (langCode) => {
+            switch (langCode) {
+                case 'zh-TW': return 'Kore';
+                case 'en-US': return 'Puck';
+                case 'ja-JP': return 'Alnilam';
+                case 'ko-KR': return 'Zephyr';
+                case 'es-US': return 'Charon';
+                case 'it-IT': return 'Algieba';
+                case 'fr-FR': return 'Laomedeia';
+                default: return 'Kore';
+            }
+        };
 
-                const writeString = (view, offset, string) => {
-                    for (let i = 0; i < string.length; i++) {
-                        view.setUint8(offset + i, string.charCodeAt(i));
-                    }
+        // DOM elements
+        const youtubeUrlInput = document.getElementById('youtube-url');
+        const mp3FileInput = document.getElementById('mp3-file-input');
+        const mp3FileLabel = document.getElementById('mp3-file-label');
+        const sourceTextInput = document.getElementById('source-text');
+        const languageSelect = document.getElementById('language-select');
+        const processBtn = document.getElementById('process-btn');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const resultsContainer = document.getElementById('results-container');
+        const translatedAudioElement = document.getElementById('translated-audio');
+        const srtContentTextarea = document.getElementById('srt-content');
+        const downloadAudioBtn = document.getElementById('download-audio-btn');
+        const downloadSrtBtn = document.getElementById('download-srt-btn');
+        const errorMessageDiv = document.getElementById('error-message');
+        const errorTextSpan = document.getElementById('error-text');
+        const fileNameDisplay = document.getElementById('file-name-display');
+        const fileNameSpan = fileNameDisplay.querySelector('span');
+
+        // Event listeners
+        mp3FileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                fileNameSpan.textContent = e.target.files[0].name;
+                fileNameDisplay.classList.remove('hidden');
+            } else {
+                fileNameSpan.textContent = '';
+                fileNameDisplay.classList.add('hidden');
+            }
+        });
+
+        processBtn.addEventListener('click', async () => {
+            // Reset state
+            errorMessageDiv.classList.add('hidden');
+            resultsContainer.classList.add('hidden');
+
+            const youtubeUrl = youtubeUrlInput.value.trim();
+            const mp3File = mp3FileInput.files[0];
+            const sourceText = sourceTextInput.value.trim();
+            const selectedLanguage = languageSelect.value;
+
+            // Validation
+            if (!youtubeUrl && !mp3File && !sourceText) {
+                errorTextSpan.textContent = '請輸入YouTube網址、上傳MP3檔案或直接輸入文字。';
+                errorMessageDiv.classList.remove('hidden');
+                return;
+            }
+
+            // UI state: Show loading, disable button
+            loadingSpinner.classList.remove('hidden');
+            processBtn.disabled = true;
+            processBtn.classList.add('bg-indigo-300', 'cursor-not-allowed');
+            processBtn.innerHTML = `<svg class="animate-spin mr-2" width="24" height="24" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4m8.5-10h-4m-13 0h-4M4.9 4.9l2.8 2.8m10.3 10.3l2.8 2.8M2 12h4m12 0h4m-15.5-2.5l-2.8-2.8m10.3 10.3l2.8 2.8"/></svg>處理中...`;
+
+            try {
+                let originalText = '';
+                if (sourceText) {
+                    originalText = sourceText;
+                } else if (youtubeUrl || mp3File) {
+                    // Placeholder text for YouTube/MP3, as direct processing is not available
+                    originalText = "Hello, everyone. Today, we're going to learn about the weather. We will talk about sun, rain, and snow. Let's start with the sun. When the sun is out, we can play outside and feel warm. The sky is usually blue. What about rain? When it rains, we use an umbrella. Rain helps the plants and flowers grow. Finally, there's snow. Snow is cold and white. We can build a snowman when it snows. That's all for today. Thank you for listening!";
+                }
+
+                // Step 2: Translate the text
+                const translatePrompt = `Translate the following text into the language code ${selectedLanguage}. The text is for a children's song or educational video. Ensure the translation is simple and clear for kids: "${originalText}"`;
+                const translatePayload = { contents: [{ role: "user", parts: [{ text: translatePrompt }] }] };
+                const translateApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const translateResponse = await fetch(translateApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(translatePayload)
+                });
+                const translateResult = await translateResponse.json();
+                const translatedText = translateResult?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (!translatedText) {
+                    throw new Error('翻譯失敗，請再試一次。');
+                }
+
+                // Step 3: Use Text-to-Speech to create the audio
+                const voiceName = getVoiceForLanguage(selectedLanguage);
+                const ttsPrompt = `Say cheerfully: ${translatedText}`;
+                const ttsPayload = {
+                    contents: [{ parts: [{ text: ttsPrompt }] }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
+                    },
+                    model: "gemini-2.5-flash-preview-tts"
                 };
 
-                // Write the RIFF header
-                writeString(dataView, offset, 'RIFF');
-                offset += 4;
-                dataView.setUint32(offset, 36 + pcmData.length, true);
-                offset += 4;
-                writeString(dataView, offset, 'WAVE');
-                offset += 4;
+                const ttsApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+                const ttsResponse = await fetch(ttsApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(ttsPayload)
+                });
+                const ttsResult = await ttsResponse.json();
+                const part = ttsResult?.candidates?.[0]?.content?.parts?.[0];
+                const audioData = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType;
 
-                // Write the fmt chunk
-                writeString(dataView, offset, 'fmt ');
-                offset += 4;
-                dataView.setUint32(offset, 16, true);
-                offset += 4;
-                dataView.setUint16(offset, 1, true); // Audio format (1 for PCM)
-                offset += 2;
-                dataView.setUint16(offset, 1, true); // Number of channels (1 for mono)
-                offset += 2;
-                dataView.setUint32(offset, sampleRate, true); // Sample rate
-                offset += 4;
-                dataView.setUint32(offset, sampleRate * 2, true); // Byte rate
-                offset += 4;
-                dataView.setUint16(offset, 2, true); // Block align
-                offset += 2;
-                dataView.setUint16(offset, 16, true); // Bits per sample
-                offset += 2;
-
-                // Write the data chunk
-                writeString(dataView, offset, 'data');
-                offset += 4;
-                dataView.setUint32(offset, pcmData.length, true); // Size of the data chunk
-                offset += 4;
-
-                // Copy the PCM data
-                for (let i = 0; i < pcmData.length; i++) {
-                    dataView.setUint8(offset + i, pcmData[i]);
+                if (!audioData || !mimeType || !mimeType.startsWith("audio/")) {
+                    throw new Error('語音生成失敗。');
                 }
 
-                return new Blob([dataView], { type: 'audio/wav' });
-            };
+                const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)[1], 10);
+                const pcmData = base64ToArrayBuffer(audioData);
+                const pcm16 = new Int16Array(pcmData);
+                const wavBlob = pcmToWav(pcm16, sampleRate);
+                const audioUrl = URL.createObjectURL(wavBlob);
 
-            // A custom fetch function with exponential backoff for handling API retries and specific error handling
-            const exponentialBackoffFetch = async (url, options, retries = 5, delay = 1000) => {
-                for (let i = 0; i < retries; i++) {
-                    try {
-                        const response = await fetch(url, options);
+                // Step 4: Create a placeholder SRT file
+                const lines = translatedText.split(/[.。?!\n]/); // Split by common punctuation
+                let srtOutput = '';
+                let currentTime = 0;
+                let srtIndex = 1;
+                lines.forEach((line) => {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine) {
+                        const startMs = currentTime;
+                        const durationMs = trimmedLine.length * 120 + 1000;
+                        const endMs = currentTime + durationMs;
 
-                        // Handle 403 Forbidden specifically, as this is likely a misconfiguration, not a temporary issue.
-                        if (response.status === 403) {
-                            throw new Error('API authentication failed (403 Forbidden). Please check your API key.');
-                        }
+                        const formatTime = (ms) => {
+                            const hours = Math.floor(ms / 3600000);
+                            const minutes = Math.floor((ms % 3600000) / 60000);
+                            const seconds = Math.floor((ms % 60000) / 1000);
+                            const milliseconds = ms % 1000;
+                            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')},${String(milliseconds).padStart(3, '0')}`;
+                        };
 
-                        // Handle other rate limiting or temporary errors with retries
-                        if (response.status === 429 && i < retries - 1) {
-                            await new Promise(resolve => setTimeout(resolve, delay * (2 ** i)));
-                            continue;
-                        }
-
-                        // Throw an error for other non-OK responses
-                        if (!response.ok) {
-                            throw new Error(`API error: ${response.statusText}`);
-                        }
-                        return response;
-                    } catch (error) {
-                        // Re-throw the error immediately if it's a 403
-                        if (error.message.includes('403 Forbidden')) {
-                            throw error;
-                        }
-                        // Retry for other errors
-                        if (i === retries - 1) {
-                            throw error;
-                        }
-                        await new Promise(resolve => setTimeout(resolve, delay * (2 ** i)));
+                        srtOutput += `${srtIndex++}\n`;
+                        srtOutput += `${formatTime(startMs)} --> ${formatTime(endMs)}\n`;
+                        srtOutput += `${trimmedLine}\n\n`;
+                        currentTime = endMs + 500;
                     }
-                }
-            };
+                });
 
-            // Function to display messages or the audio player in the UI
-            const renderContent = (contentHtml, type = 'html') => {
-                dynamicContentArea.innerHTML = '';
-                if (type === 'html') {
-                    dynamicContentArea.innerHTML = contentHtml;
-                } else if (type === 'audio') {
-                    const audioDiv = document.createElement('div');
-                    audioDiv.className = 'p-4 bg-gray-100 rounded-lg';
-                    audioDiv.innerHTML = `
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Generated Audio</h3>
-                        <audio controls src="${contentHtml}" class="w-full"></audio>
-                    `;
-                    dynamicContentArea.appendChild(audioDiv);
-                }
-            };
+                // Update UI with results
+                translatedAudioElement.src = audioUrl;
+                downloadAudioBtn.href = audioUrl;
+                srtContentTextarea.value = srtOutput;
+                downloadSrtBtn.onclick = () => {
+                    const file = new Blob([srtOutput], { type: 'text/plain' });
+                    const element = document.createElement("a");
+                    element.href = URL.createObjectURL(file);
+                    element.download = "translated_subtitles.srt";
+                    document.body.appendChild(element);
+                    element.click();
+                };
 
-            // Function to handle the loading state of the button and UI
-            const setLoading = (isLoading) => {
-                generateButton.disabled = isLoading;
-                const buttonText = isLoading ? 'Generating...' : 'Generate Audio';
-                generateButton.innerHTML = buttonText;
-                generateButton.classList.toggle('bg-indigo-300', isLoading);
-                generateButton.classList.toggle('hover:bg-indigo-700', !isLoading);
-                generateButton.classList.toggle('active:scale-95', !isLoading);
+                resultsContainer.classList.remove('hidden');
 
-                if (isLoading) {
-                    const loadingHtml = `
-                        <div class="flex justify-center items-center py-4">
-                            <svg class="animate-spin h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span class="ml-3 text-gray-600">Generating voice, this may take a few seconds...</span>
-                        </div>
-                    `;
-                    renderContent(loadingHtml);
-                } else {
-                    // Clear the loading message if no audio is present
-                    if (!dynamicContentArea.querySelector('audio')) {
-                         renderContent('');
-                    }
-                }
-            };
-
-            // Event listener for the generate button click
-            generateButton.addEventListener('click', async () => {
-                const text = textInput.value.trim();
-                const voice = voiceSelector.value;
-
-                if (!text) {
-                    // Display an error message if the text area is empty
-                    renderContent('<div class="p-4 bg-red-100 text-red-700 rounded-lg mb-6 text-center">Please enter some text.</div>');
-                    return;
-                }
-
-                // Set the UI to a loading state
-                setLoading(true);
-
-                try {
-                    // The API payload for the TTS request
-                    const payload = {
-                        contents: [{
-                            parts: [{ text: text }]
-                        }],
-                        generationConfig: {
-                            responseModalities: ["AUDIO"],
-                            speechConfig: {
-                                voiceConfig: {
-                                    prebuiltVoiceConfig: { voiceName: voice }
-                                }
-                            }
-                        },
-                        model: "gemini-2.5-flash-preview-tts"
-                    };
-
-                    // The API endpoint. Note: The API key is handled automatically by the environment.
-                    const apiKey = "";
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
-
-                    // Make the API call with exponential backoff
-                    const response = await exponentialBackoffFetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    const result = await response.json();
-
-                    // Extract the audio data from the API response
-                    const part = result?.candidates?.[0]?.content?.parts?.[0];
-                    const audioData = part?.inlineData?.data;
-                    const mimeType = part?.inlineData?.mimeType;
-
-                    if (audioData && mimeType && mimeType.startsWith("audio/")) {
-                        const sampleRateMatch = mimeType.match(/rate=(\d+)/);
-                        const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 16000;
-                        const pcmData = base64ToArrayBuffer(audioData);
-
-                        // Convert the raw PCM data to a playable WAV blob
-                        const pcm16 = new Int16Array(pcmData);
-                        const wavBlob = pcmToWav(pcm16, sampleRate);
-                        const audioUrl = URL.createObjectURL(wavBlob);
-
-                        // Display the audio player in the UI
-                        renderContent(audioUrl, 'audio');
-                    } else {
-                        // Handle cases where the API response is not in the expected format
-                        console.error('API response error: Audio data or mime type is missing.');
-                        renderContent('<div class="p-4 bg-red-100 text-red-700 rounded-lg text-center">Sorry, there was an error generating the audio. Please try again.</div>');
-                    }
-
-                } catch (error) {
-                    // Display a user-friendly error message on the UI
-                    console.error('Fetch error:', error);
-                    let errorMessage = 'Failed to connect to the audio generation service. Please check your internet connection and try again.';
-                    if (error.message.includes('403 Forbidden')) {
-                        errorMessage = 'Error: The API request was unauthorized. This is likely due to an issue with the API key.';
-                    }
-                    renderContent(`<div class="p-4 bg-red-100 text-red-700 rounded-lg text-center">${errorMessage}</div>`);
-                } finally {
-                    // Reset the button and UI state
-                    setLoading(false);
-                }
-            });
+            } catch (e) {
+                console.error(e);
+                errorTextSpan.textContent = `發生錯誤: ${e.message}`;
+                errorMessageDiv.classList.remove('hidden');
+            } finally {
+                // UI state: Hide loading, enable button
+                loadingSpinner.classList.add('hidden');
+                processBtn.disabled = false;
+                processBtn.classList.remove('bg-indigo-300', 'cursor-not-allowed');
+                processBtn.innerHTML = '開始轉換';
+            }
         });
     </script>
 </body>
